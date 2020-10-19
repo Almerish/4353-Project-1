@@ -1,3 +1,4 @@
+// COSC 4353 Group Project
 import java.sql.*;
 import java.util.Scanner;
 
