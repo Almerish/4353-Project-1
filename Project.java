@@ -3,9 +3,12 @@ import java.util.Scanner;
 
 public class project1 {
 
+
     /*SQL statements based off of https://www.tutorialspoint.com/sqlite/sqlite_java.htm
      * and https://www.sqlitetutorial.net/sqlite-java/*/
-
+    public project1() {
+        connect();
+    }
     private Connection connect() {
         Connection c = null;
         String url = "jdbc:sqlite:Project_1.db";
@@ -25,7 +28,7 @@ public class project1 {
                 + "	name TEXT\n"
                 + ");";
         String sql2 = "CREATE TABLE IF NOT EXISTS Tasks (\n"
-                + "TaskId TEXT, \n Description TEXT, \n Subtasks TEXT, \n DueDate TEXT, \n "
+                + "TaskId TEXT, \n Description TEXT, \n DueDate TEXT, \n "
                 + "AssignedTo TEXT, \n CreatedOn TEXT, \n CreatedBy TEXT, \n Status TEXT, \n Color TEXT\n"
                 + ");";
         String sql3 = "CREATE TABLE IF NOT EXISTS Teams (\n"
@@ -38,11 +41,21 @@ public class project1 {
                 "    CreatedBy TEXT, \n" +
                 "    CreatedOn DATE \n" +
                 ");";
+        String sql5 = "CREATE TABLE IF NOT EXISTS Subtasks (\n" +
+                "    TaskId TEXT, \n" +
+                "    SubtaskId TEXT \n" +
+                ");";
+        String sql6 = "CREATE TABLE IF NOT EXISTS CategoryTaskMap (\n" +
+                "    CategoryName TEXT, \n" +
+                "    TaskId TEXT\n" +
+                ");";
         try (Connection conn = DriverManager.getConnection(url); Statement stmt = conn.createStatement()) {
             stmt.execute(sql1);
             stmt.execute(sql2);
             stmt.execute(sql3);
             stmt.execute(sql4);
+            stmt.execute(sql5);
+            stmt.execute(sql6);
         } catch (SQLException e) {
             System.err.println(e.getClass().getName() + ": " + e.getMessage());
             System.exit(0);
@@ -65,20 +78,19 @@ public class project1 {
         }
     }
 
-    public void insertTasks(String TaskId, String Description, String Subtasks, String DueDate, String AssignedTo, String CreatedOn, String CreatedBy, String Status, String Color) {
-        String sql = "INSERT INTO Tasks(TaskId,Description,Subtasks,DueDate,AssignedTo,CreatedOn,CreatedBy,Status,Color) VALUES(?,?,?,?,?,?,?,?,?)";
+    public void insertTasks(String TaskId, String Description, String DueDate, String AssignedTo, String CreatedOn, String CreatedBy, String Status, String Color) {
+        String sql = "INSERT INTO Tasks(TaskId,Description,DueDate,AssignedTo,CreatedOn,CreatedBy,Status,Color) VALUES(?,?,?,?,?,?,?,?)";
 
         try (Connection conn = this.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, TaskId);
             pstmt.setString(2, Description);
-            pstmt.setString(3, Subtasks);
-            pstmt.setString(4, DueDate);
-            pstmt.setString(5, AssignedTo);
-            pstmt.setString(6, CreatedOn);
-            pstmt.setString(7, CreatedBy);
-            pstmt.setString(8, Status);
-            pstmt.setString(9, Color);
+            pstmt.setString(3, DueDate);
+            pstmt.setString(4, AssignedTo);
+            pstmt.setString(5, CreatedOn);
+            pstmt.setString(6, CreatedBy);
+            pstmt.setString(7, Status);
+            pstmt.setString(8, Color);
             pstmt.executeUpdate();
         } catch (SQLException e) {
             System.out.println(e.getMessage());
@@ -106,6 +118,34 @@ public class project1 {
             pstmt.setString(2, Description);
             pstmt.setString(3, CreatedBy);
             pstmt.setString(4, CreatedOn);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        }
+    }
+
+    public void insertSubtasks(String TaskId, String SubtaskId) {
+        // Should only insert if TaskId currently exists.
+        String sql = "INSERT INTO Subtasks(TaskId,SubtaskId) SELECT TaskId, ? FROM Tasks WHERE TaskId=?";
+
+        try (Connection conn = this.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, SubtaskId);
+            pstmt.setString(2, TaskId);
+
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        }
+    }
+
+    public void insertCategoryTaskMap(String CategoryName, String TaskId) {
+        String sql = "INSERT INTO CategoryTaskMap(CategoryName,TaskId) VALUES(?,?)";
+
+        try (Connection conn = this.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, CategoryName);
+            pstmt.setString(2, TaskId);
             pstmt.executeUpdate();
         } catch (SQLException e) {
             System.out.println(e.getMessage());
@@ -149,6 +189,30 @@ public class project1 {
         } catch (SQLException e) {
             System.out.println(e.getMessage());
         }
+
+        String sql2 = "DELETE FROM Subtasks WHERE TaskId=?";
+
+        try (Connection conn = this.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql2)) {
+            pstmt.setString(1, TaskId);
+            pstmt.executeUpdate();
+            System.out.println("Successfully deleted the subtasks from the following task: " + TaskId);
+
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        }
+
+        String sql3 = "DELETE FROM CategoryTaskMap WHERE TaskId=?";
+
+        try (Connection conn = this.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql3)) {
+            pstmt.setString(1, TaskId);
+            pstmt.executeUpdate();
+            System.out.println("Successfully deleted the following task from its category: " + TaskId);
+
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        }
     }
 
     public void deleteTeams(String TeamId) {
@@ -175,8 +239,70 @@ public class project1 {
         } catch (SQLException e) {
             System.out.println(e.getMessage());
         }
+
+        sql = "DELETE FROM CategoryTaskMap WHERE CategoryName=?";
+
+        try (Connection conn = this.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, Name);
+            pstmt.executeUpdate();
+            System.out.println("Successfully deleted the removed tasks from the following category: " + Name);
+
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        }
     }
 
+    public void deleteSubtasks(String TaskId, String SubtaskId) {
+        String sql = "DELETE FROM Subtasks WHERE TaskId=? AND SubtaskId=?";
+
+        try (Connection conn = this.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, TaskId);
+            pstmt.setString(2, SubtaskId);
+            pstmt.executeUpdate();
+            System.out.println("Successfully deleted the following subtask: " + SubtaskId);
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        }
+    }
+
+    public void printTable() {
+        Connection c = null;
+        String url = "jdbc:sqlite:Project_1.db";
+        Statement s = null;
+        try {
+            Class.forName("org.sqlite.JDBC");
+            c = DriverManager.getConnection(url);
+            s = c.createStatement();
+            int numOfTables = 5;
+            String tableNames[] = new String[]{"Categories", "CategoryTaskMap", "Tasks", "Teams", "Subtasks"};
+            String sqlArr[] = new String[numOfTables];
+            for (int i = 0; i < numOfTables; i++) {
+                sqlArr[i] = "SELECT * FROM " + tableNames[i];
+            }
+            for (int i = 0; i < numOfTables; i++) { // Go through each table
+                ResultSet rs = s.executeQuery(sqlArr[i]);
+                ResultSetMetaData rsmd = rs.getMetaData();
+                System.out.println("===" + tableNames[i] + " Table===");
+                int count = 1;
+                while (rs.next()) { // Go through each row of the current table
+                    System.out.println(tableNames[i] + " #" + count);
+                    for (int j = 1; j <= rsmd.getColumnCount(); j++) {
+                        String colName = rsmd.getColumnName(j);
+                        System.out.println("\t" + colName + ": " +rs.getString(colName));
+                    }
+                    count++;
+                }
+                rs.close();
+            }
+            c.close();
+
+        } catch (Exception e) {
+            System.err.println(e.getClass().getName() + ": " + e.getMessage());
+            System.exit(0);
+        }
+    }
 
     public static void main(String args[]) {
 
@@ -188,6 +314,8 @@ public class project1 {
         int Choice1;
         do {
             System.out.println("Current Tasks:\n--"); // PLACEHOLDER
+            app.printTable();
+
             System.out.println("Insert number of what you wish to do: \n[1] Create \n[2] Edit \n[3] Delete \n[4] Quit");
             Choice1 = input.nextInt();
             System.out.println(); // skip line after user entry (for readability)
@@ -199,7 +327,7 @@ public class project1 {
                     do {
                         System.out.println("Insert number of what you wish to create: \n[1] Member \n[2] Task \n[3] Team \n[4] Task Category \n[5] Back");
                         Choice2 = input.nextInt();
-                        input.nextLine(); // to read the return key 
+                        input.nextLine(); // to read the return key
                         System.out.println(); // skip line after user entry (for readability)
                         switch (Choice2) {
                             // Create Member
@@ -221,25 +349,44 @@ public class project1 {
                                 String a = input.nextLine();
                                 System.out.println("Enter Description");
                                 String b = input.nextLine();
-                                System.out.println("Enter Subtasks");
-                                String c = input.nextLine();
                                 System.out.println("Enter Due Date");
-                                String d = input.nextLine();
+                                String c = input.nextLine();
                                 System.out.println("Enter Assigned To");
-                                String e = input.nextLine();
+                                String d = input.nextLine();
                                 //Make automatic once users are implemented
                                 System.out.println("Enter Created On");
-                                String f = input.nextLine();
+                                String e = input.nextLine();
                                 //Make automatic at some point
                                 System.out.println("Enter Created By");
-                                String g = input.nextLine();
+                                String f = input.nextLine();
                                 //Preset status options maybe?
                                 System.out.println("Enter Status");
-                                String h = input.nextLine();
+                                String g = input.nextLine();
                                 //Preset colors?
                                 System.out.println("Enter Color");
-                                String i = input.nextLine();
-                                app.insertTasks(a, b, c, d, e, f, g, h, i);
+                                String h = input.nextLine();
+                                app.insertTasks(a, b, c, d, e, f, g, h);
+
+                                // Preset subtasks
+                                String answer;
+                                do {
+                                    System.out.println("Do you want to add any subtasks? (y/n)");
+                                    answer = input.nextLine();
+                                }
+                                while (!(answer.equalsIgnoreCase("y") || answer.equalsIgnoreCase("n")));
+                                if (answer.equalsIgnoreCase("y")) { // add subtasks until user says to not continue
+                                    do {
+                                        System.out.println("Enter Task");
+                                        String taskId = input.nextLine();
+                                        System.out.println("Enter SubTask");
+                                        String subtaskId = input.nextLine();
+                                        app.insertSubtasks(taskId, subtaskId);
+                                        System.out.println("Continue adding subtasks? (y/n)");
+                                        answer = input.nextLine();
+                                    }
+                                    while (answer.equalsIgnoreCase("y"));
+                                }
+
                                 break;
                             }
                             // Create Team
@@ -277,7 +424,7 @@ public class project1 {
                             case 5: {
                                 break; // exit loop, return to main menu without futher edits
                             }
-                            default: { 
+                            default: {
                                 System.out.println("Invalid Entry");
                             }
                         }
@@ -287,7 +434,7 @@ public class project1 {
                 }
                 // Edit(manipulate) Entity
                 case 2: {
-                    // After entering 5 in case 1 
+                    // After entering 5 in case 1
                     System.out.println("Edit (WIP) --> Main Menu"); //PLACEHOLDER for edit menu
                     break;
                 }
@@ -346,13 +493,14 @@ public class project1 {
                     } while (Choice2 != 5);
                     break;
                 }
-                case 4: { 
+                case 4: {
                     break; // exit loop & program
                 }
-                default: { 
+                default: {
                     System.out.println("Invalid Entry");
                 }
             }
         } while (Choice1 != 4);
     }
 }
+
